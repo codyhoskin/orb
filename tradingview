@@ -1,0 +1,59 @@
+//@version=6
+indicator("orb", overlay=true, dynamic_requests=true)
+userTZ = input.string("America/New_York", "Your Timezone",
+     options = [
+         "America/New_York", "Etc/UTC", "Europe/London",
+         "Asia/Tokyo", "Asia/Ho_Chi_Minh", "Asia/Singapore",
+         "Asia/Bangkok", "Australia/Sydney"
+     ])
+nyOpenStr = input.string("09:30", "NY Open (HH:MM in YOUR timezone)")
+asOpenStr = input.string("19:00", "Asia Open (HH:MM in YOUR timezone)")
+rangeMinutes = 15
+lineOffset = input.int(-1, "Bar Alignment", minval=-10, maxval=10)
+f_parseTime(timeStr) =>
+    padded = timeStr + ":0000"
+    hh = str.tonumber(str.substring(padded, 0, 2))
+    mm = str.tonumber(str.substring(padded, 3, 5))
+    [hh, mm]
+[nyHH, nyMM] = f_parseTime(nyOpenStr)
+[asHH, asMM] = f_parseTime(asOpenStr)
+H  = hour(time, userTZ)
+M  = minute(time, userTZ)
+Y  = year(time, userTZ)
+MO = month(time, userTZ)
+D  = dayofmonth(time, userTZ)
+dayKey = Y * 10000 + MO * 100 + D
+hi15 = request.security(syminfo.tickerid, "15", high)
+lo15 = request.security(syminfo.tickerid, "15", low)
+isNY = (H == nyHH and M >= nyMM and M < nyMM + rangeMinutes)
+var float nyHigh = na
+var float nyLow  = na
+var int   nyDay  = na
+newNY = isNY and (na(nyDay) or dayKey > nyDay)
+if newNY
+    nyHigh := hi15
+    nyLow  := lo15
+    nyDay  := dayKey
+showNY = not newNY
+colNY_H = input.color(color.rgb(68, 68, 68, 60), "NY High Line")
+colNY_L = input.color(color.rgb(88, 88, 88, 60), "NY Low Line")
+colNY_F = input.color(color.new(color.green, 90), "NY Fill")
+pNYH = plot(showNY ? nyHigh : na, "NY High", color=colNY_H, style=plot.style_linebr, offset=lineOffset)
+pNYL = plot(showNY ? nyLow  : na, "NY Low",  color=colNY_L, style=plot.style_linebr, offset=lineOffset)
+fill(pNYH, pNYL, color=colNY_F)
+isAS = (H == asHH and M >= asMM and M < asMM + rangeMinutes)
+var float asHigh = na
+var float asLow  = na
+var int   asDay  = na
+newAS = isAS and (na(asDay) or dayKey > asDay)
+if newAS
+    asHigh := hi15
+    asLow  := lo15
+    asDay  := dayKey
+showAS = not newAS
+colAS_H = input.color(color.rgb(30, 30, 30, 60), "Asia High Line")
+colAS_L = input.color(color.rgb(50, 50, 50, 60), "Asia Low Line")
+colAS_F = input.color(color.new(color.blue, 90), "Asia Fill")
+pASH = plot(showAS ? asHigh : na, "Asia High", color=colAS_H, style=plot.style_linebr, offset=lineOffset)
+pASL = plot(showAS ? asLow  : na, "Asia Low",  color=colAS_L, style=plot.style_linebr, offset=lineOffset)
+fill(pASH, pASL, color=colAS_F)
