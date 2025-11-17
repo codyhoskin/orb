@@ -1,10 +1,11 @@
 //@version=6
 indicator("orb", overlay=true, dynamic_requests=true)
 userTZ = input.string("America/New_York", options = ["America/New_York", "Europe/London", "Asia/Tokyo", "Asia/Ho_Chi_Minh", "Asia/Singapore","Asia/Bangkok", "Australia/Sydney"])
-toggleLabels = input.bool(true, "Toggle Labels")
 nyOpenStr = input.string("09:30", "NY Open (HH:MM)")
 asOpenStr = input.string("19:00", "Asia Open (HH:MM)")
 rangeMinutes = 15
+toggleLabels = input.bool(true, "Toggle Labels")
+toggleMidline = input.bool(true, "Toggle Midline")
 lineOffset = input.int(-1, "Bar Alignment", minval=-10, maxval=10)
 f_parseTime(timeStr) =>
     hh = str.tonumber(str.substring(timeStr, 0, 2))
@@ -43,6 +44,8 @@ colNY_F = input.color(color.new(color.green, 90), "NY Fill")
 pNYH = plot(showNY ? nyHigh : na, "NY High", color = colNY_H, style = plot.style_linebr, offset=lineOffset)
 pNYL = plot(showNY ? nyLow  : na, "NY Low",  color = colNY_L, style = plot.style_linebr, offset=lineOffset)
 fill(pNYH, pNYL, color=colNY_F)
+nyMid = (nyHigh + nyLow) / 2
+plot(showNY and toggleMidline ? nyMid : na, "NY Midline", color = colNY_H, style = plot.style_linebr, offset=lineOffset)
 [isAS, asCandleHigh, asCandleLow] = f_getORB(asHH, asMM)
 var float asHigh = na
 var float asLow  = na
@@ -63,6 +66,8 @@ colAS_F = input.color(color.new(color.blue, 90), "Asia Fill")
 pASH = plot(showAS ? asHigh : na, "Asia High", color = colAS_H, style=plot.style_linebr, offset=lineOffset)
 pASL = plot(showAS ? asLow  : na,  "Asia Low", color = colAS_L, style=plot.style_linebr, offset=lineOffset)
 fill(pASH, pASL, color=colAS_F)
+asMid = (asHigh + asLow) / 2
+plot(showAS and toggleMidline ? asMid : na, "Asia Midline", color = colAS_H, style = plot.style_linebr, offset=lineOffset)
 if toggleLabels and showNY and not na(nyStartX)
     label.delete(nyLabel)
     midNY = (nyHigh + nyLow) / 2
