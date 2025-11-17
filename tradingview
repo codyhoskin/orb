@@ -1,19 +1,14 @@
 //@version=6
 indicator("orb", overlay=true, dynamic_requests=true)
-userTZ = input.string("America/New_York", "Your Timezone",
-     options = [
-         "America/New_York", "Etc/UTC", "Europe/London",
-         "Asia/Tokyo", "Asia/Ho_Chi_Minh", "Asia/Singapore",
-         "Asia/Bangkok", "Australia/Sydney"
-     ])
-nyOpenStr = input.string("09:30", "NY Open (HH:MM in YOUR timezone)")
-asOpenStr = input.string("19:00", "Asia Open (HH:MM in YOUR timezone)")
+userTZ = input.string("America/New_York", options = ["America/New_York", "Europe/London", "Asia/Tokyo", "Asia/Ho_Chi_Minh", "Asia/Singapore","Asia/Bangkok", "Australia/Sydney"])
+toggleLabels = input.bool(true, "Toggle Labels")
+nyOpenStr = input.string("09:30", "NY Open (HH:MM)")
+asOpenStr = input.string("19:00", "Asia Open (HH:MM)")
 rangeMinutes = 15
 lineOffset = input.int(-1, "Bar Alignment", minval=-10, maxval=10)
 f_parseTime(timeStr) =>
-    padded = timeStr + ":0000"
-    hh = str.tonumber(str.substring(padded, 0, 2))
-    mm = str.tonumber(str.substring(padded, 3, 5))
+    hh = str.tonumber(str.substring(timeStr, 0, 2))
+    mm = str.tonumber(str.substring(timeStr, 3, 5))
     [hh, mm]
 [nyHH, nyMM] = f_parseTime(nyOpenStr)
 [asHH, asMM] = f_parseTime(asOpenStr)
@@ -23,37 +18,56 @@ Y  = year(time, userTZ)
 MO = month(time, userTZ)
 D  = dayofmonth(time, userTZ)
 dayKey = Y * 10000 + MO * 100 + D
-hi15 = request.security(syminfo.tickerid, "15", high)
-lo15 = request.security(syminfo.tickerid, "15", low)
-isNY = (H == nyHH and M >= nyMM and M < nyMM + rangeMinutes)
+f_getORB(orbHour, orbMin) =>
+    inWindow = (H == orbHour and M >= orbMin and M < orbMin + rangeMinutes)
+    orbHigh = request.security(syminfo.tickerid, "15", high, lookahead = barmerge.lookahead_on)
+    orbLow  = request.security(syminfo.tickerid, "15", low,  lookahead = barmerge.lookahead_on)
+    [inWindow, orbHigh, orbLow]
+[isNY, nyCandleHigh, nyCandleLow] = f_getORB(nyHH, nyMM)
 var float nyHigh = na
 var float nyLow  = na
 var int   nyDay  = na
+var int   nyStartX = na
+var label nyLabel = na
 newNY = isNY and (na(nyDay) or dayKey > nyDay)
 if newNY
-    nyHigh := hi15
-    nyLow  := lo15
+    nyHigh := nyCandleHigh
+    nyLow  := nyCandleLow
     nyDay  := dayKey
+    nyStartX := bar_index
+    label.delete(nyLabel)
 showNY = not newNY
-colNY_H = input.color(color.rgb(68, 68, 68, 60), "NY High Line")
-colNY_L = input.color(color.rgb(88, 88, 88, 60), "NY Low Line")
+colNY_H = input.color(color.rgb(68, 68, 68, 50), "NY High Line")
+colNY_L = input.color(color.rgb(88, 88, 88, 50), "NY Low Line")
 colNY_F = input.color(color.new(color.green, 90), "NY Fill")
-pNYH = plot(showNY ? nyHigh : na, "NY High", color=colNY_H, style=plot.style_linebr, offset=lineOffset)
-pNYL = plot(showNY ? nyLow  : na, "NY Low",  color=colNY_L, style=plot.style_linebr, offset=lineOffset)
+pNYH = plot(showNY ? nyHigh : na, "NY High", color = colNY_H, style = plot.style_linebr, offset=lineOffset)
+pNYL = plot(showNY ? nyLow  : na, "NY Low",  color = colNY_L, style = plot.style_linebr, offset=lineOffset)
 fill(pNYH, pNYL, color=colNY_F)
-isAS = (H == asHH and M >= asMM and M < asMM + rangeMinutes)
+[isAS, asCandleHigh, asCandleLow] = f_getORB(asHH, asMM)
 var float asHigh = na
 var float asLow  = na
 var int   asDay  = na
+var int   asStartX = na
+var label asLabel = na
 newAS = isAS and (na(asDay) or dayKey > asDay)
 if newAS
-    asHigh := hi15
-    asLow  := lo15
+    asHigh := asCandleHigh
+    asLow  := asCandleLow
     asDay  := dayKey
+    asStartX := bar_index
+    label.delete(asLabel)
 showAS = not newAS
-colAS_H = input.color(color.rgb(30, 30, 30, 60), "Asia High Line")
-colAS_L = input.color(color.rgb(50, 50, 50, 60), "Asia Low Line")
+colAS_H = input.color(color.rgb(30, 30, 30, 50), "Asia High Line")
+colAS_L = input.color(color.rgb(50, 50, 50, 50), "Asia Low Line")
 colAS_F = input.color(color.new(color.blue, 90), "Asia Fill")
-pASH = plot(showAS ? asHigh : na, "Asia High", color=colAS_H, style=plot.style_linebr, offset=lineOffset)
-pASL = plot(showAS ? asLow  : na, "Asia Low",  color=colAS_L, style=plot.style_linebr, offset=lineOffset)
+pASH = plot(showAS ? asHigh : na, "Asia High", color = colAS_H, style=plot.style_linebr, offset=lineOffset)
+pASL = plot(showAS ? asLow  : na,  "Asia Low", color = colAS_L, style=plot.style_linebr, offset=lineOffset)
 fill(pASH, pASL, color=colAS_F)
+if toggleLabels and showNY and not na(nyStartX)
+    label.delete(nyLabel)
+    midNY = (nyHigh + nyLow) / 2
+    nyLabel := label.new(nyStartX - 1, midNY, " NY ", xloc.bar_index, yloc.price, colNY_F, label.style_label_right, color.white)
+if toggleLabels and showAS and not na(asStartX)
+    label.delete(asLabel)
+    midAS = (asHigh + asLow) / 2
+    asLabel := label.new(asStartX - 1, midAS, " ASIA ", xloc.bar_index, yloc.price, colAS_F, label.style_label_right, color.white)
